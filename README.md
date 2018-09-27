@@ -1,1 +1,1 @@
-https://minecraft.curseforge.com/projects/end-reset
+https://minecraft.curseforge.com/projects/endreset
