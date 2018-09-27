@@ -1,0 +1,13 @@
+{
+  "modListVersion": 2,
+  "modList": [{
+    "modid": "de.v10lator.endreset",
+    "name": "End Reset",
+    "description": "Per dimension game-mode",
+    "version": ${version}",
+    "mcversion": "${mcversion}",
+    "authorList": [ "V10lator" ],
+    "requiredMods": [ "forge" ],
+    "useDependencyInformation": false
+  }]
+}
