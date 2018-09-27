@@ -14,7 +14,7 @@ apply plugin: 'net.minecraftforge.gradle.forge'
 
 version = "0.8.0"
 group = "de.v10lator.endreset" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
-archivesBaseName = "End Reset"
+archivesBaseName = "EndReset"
 
 sourceCompatibility = targetCompatibility = '1.8' // Need this here so eclipse task generates correctly.
 compileJava {
