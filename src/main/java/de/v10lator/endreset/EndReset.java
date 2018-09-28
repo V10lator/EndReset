@@ -70,7 +70,7 @@ public class EndReset {
 	private Field dragonKilled;
 	final String permResetNode = "##MODID##.command.reset";
 	final String permAddRemoveNode = "##MODID##.command.addRemove";
-	final String permSchedule = "##MODID##.command.scheduler";
+	final String permScheduleNode = "##MODID##.command.scheduler";
 	EndResetConfigHandler configHandler;
 	EndResetScheduler scheduler;
 	
@@ -92,6 +92,7 @@ public class EndReset {
 		configHandler = new EndResetConfigHandler(this, new Configuration(configFile, "1.0"));
 		PermissionAPI.registerNode(permResetNode, DefaultPermissionLevel.OP, "Use the /endreset reset command");
 		PermissionAPI.registerNode(permAddRemoveNode, DefaultPermissionLevel.OP, "Use the /endreset <add|remove> commands");
+		PermissionAPI.registerNode(permScheduleNode, DefaultPermissionLevel.OP, "Use the /endreset scheduler <add|remove> commands");
 		event.registerServerCommand(new EndResetCommand(this));
 		MinecraftForge.EVENT_BUS.register(this);
 		configHandler.start();

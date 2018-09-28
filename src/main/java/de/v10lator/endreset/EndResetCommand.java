@@ -49,7 +49,7 @@ public class EndResetCommand extends CommandBase {
 			EntityPlayer p = (EntityPlayer)sender;
 			canReset = PermissionAPI.hasPermission(p, mod.permResetNode);
 			canAddRemove = PermissionAPI.hasPermission(p, mod.permAddRemoveNode);
-			canSchedule = PermissionAPI.hasPermission(p, mod.permSchedule);
+			canSchedule = PermissionAPI.hasPermission(p, mod.permScheduleNode);
 		}
 		else
 			canReset = canAddRemove = canSchedule = true;
@@ -69,7 +69,7 @@ public class EndResetCommand extends CommandBase {
 		if(sender instanceof EntityPlayer)
 		{
 			EntityPlayer p = (EntityPlayer)sender;
-			return PermissionAPI.hasPermission(p, mod.permResetNode) || PermissionAPI.hasPermission(p, mod.permAddRemoveNode) || PermissionAPI.hasPermission(p, mod.permSchedule);
+			return PermissionAPI.hasPermission(p, mod.permResetNode) || PermissionAPI.hasPermission(p, mod.permAddRemoveNode) || PermissionAPI.hasPermission(p, mod.permScheduleNode);
 		}
 		return true;
 	}
@@ -194,7 +194,7 @@ public class EndResetCommand extends CommandBase {
 	
 	private void schedulerCommand(MinecraftServer server, ICommandSender sender, String[] args)
 	{
-		if(sender instanceof EntityPlayer && !PermissionAPI.hasPermission((EntityPlayer)sender, mod.permSchedule))
+		if(sender instanceof EntityPlayer && !PermissionAPI.hasPermission((EntityPlayer)sender, mod.permScheduleNode))
 		{
 			sender.sendMessage(mod.makeMessage(TextFormatting.RED, "No permission to use the scheduler command!"));
 			return;
