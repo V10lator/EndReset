@@ -24,6 +24,9 @@ import java.lang.reflect.Field;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import de.v10lator.endreset.capabilities.entity.IPlayerWorldVersions;
+import de.v10lator.endreset.capabilities.entity.PlayerWorldVersionsProvider;
+import de.v10lator.endreset.capabilities.world.WorldVersionProvider;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
@@ -67,6 +70,7 @@ public class EndReset {
 	@Mod.EventHandler
     public void onPreInit(FMLPreInitializationEvent event) {
 		configFile = new File(event.getModConfigurationDirectory(), "##NAME##.cfg");
+		MinecraftForge.EVENT_BUS.register(new EndResetCapabilityAttacher());
 	}
 	
 	@Mod.EventHandler
@@ -109,6 +113,7 @@ public class EndReset {
 		int id = world.provider.getDimension();
 		MinecraftServer server = world.getMinecraftServer();
 		// Remove NBT data
+		long version = world.getCapability(WorldVersionProvider.VERSION_CAP, null).get() + 1L;
 		NBTTagCompound nbt = world.getWorldInfo().getDimensionData(id);
 		for(String key: nbt.getKeySet())
 			nbt.removeTag(key);
@@ -129,6 +134,7 @@ public class EndReset {
 			logger.catching(e);
 			DimensionManager.setWorld(id, (WorldServer)world, server);
 		}
+		world.getCapability(WorldVersionProvider.VERSION_CAP, null).set(version);
 		return world;
 	}
 	
@@ -160,11 +166,53 @@ public class EndReset {
 		reset(world);
 	}
 	
+	private void checkPlayerTp(World to, EntityPlayer player)
+	{
+		IPlayerWorldVersions versions = player.getCapability(PlayerWorldVersionsProvider.VERSION_CAP, null);
+		int id = to.provider.getDimension();
+		long pv = versions.get(id);
+		long version = to.getCapability(WorldVersionProvider.VERSION_CAP, null).get();
+		if(pv < version)
+		{
+			versions.set(id, version);
+			if(pv > -1)
+				player.sendMessage(makeMessage(TextFormatting.YELLOW, "This world has been resetted since your last visit"));
+		}
+	}
+	
+	@SubscribeEvent
+	public void onPlayerClone(net.minecraftforge.event.entity.player.PlayerEvent.Clone event)
+	{
+		if(event.isWasDeath())
+			event.getEntity().getCapability(PlayerWorldVersionsProvider.VERSION_CAP, null).integrate(event.getOriginal().getCapability(PlayerWorldVersionsProvider.VERSION_CAP, null));
+	}
+	
+	@SubscribeEvent(priority=EventPriority.LOWEST)
+	public void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
+		if(!event.isCanceled())
+			checkPlayerTp(event.player.world, event.player);
+	}
+	
 	// PlayerChangeDimensionEvent seems bugged, use EntityTravelToDimensionEvent instead
 	@SubscribeEvent(priority=EventPriority.LOWEST)
-	public void onDimensionChange(EntityTravelToDimensionEvent event) {
+	public void onEntityDimensionChange(EntityTravelToDimensionEvent event) {
 		if(!event.isCanceled() && event.getEntity() instanceof EntityPlayer)
-			checkDim(event.getEntity().world, (EntityPlayer)event.getEntity());
+		{
+			EntityPlayer player = (EntityPlayer)event.getEntity();
+			checkDim(player.world, player);
+			checkPlayerTp(event.getEntity().getServer().getWorld(event.getDimension()), player);
+		}
+	}
+	
+	@SubscribeEvent(priority=EventPriority.LOWEST)
+	public void onPlayerDimensionChange(PlayerEvent.PlayerChangedDimensionEvent event)
+	{
+		if(!event.isCanceled())
+		{
+			MinecraftServer server = event.player.getServer();
+			checkDim(server.getWorld(event.fromDim), event.player);
+			checkPlayerTp(server.getWorld(event.toDim), event.player);
+		}
 	}
 	
 	@SubscribeEvent
