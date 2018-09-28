@@ -89,48 +89,74 @@ public class EndResetConfigHandler extends Thread {
 	
 	void reloadConfig() //TODO: Make a command for this
 	{
-		while(!lock.compareAndSet(false, true))
-		{
-			try {
-				Thread.sleep(1);
-			}
-			catch (InterruptedException e) {}
-		}
+		getLockedConfig();
 		config.load();
-		if(!config.hasCategory("worlds"))
-		{
-			releaseLock();
-			return;
-		}
-		Entry<String, Property> entry;
 		int c = 0;
 		MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
 		int id;
 		World world;
-		for(Iterator<Entry<String, Property>> iter = config.getCategory("worlds").entrySet().iterator(); iter.hasNext(); )
+		Entry<String, Property> entry;
+		if(config.hasCategory("worlds"))
 		{
-			entry = iter.next();
-			if(!entry.getValue().getBoolean())
+			for(Iterator<Entry<String, Property>> iter = config.getCategory("worlds").entrySet().iterator(); iter.hasNext(); )
 			{
-				iter.remove();
-				c++;
-				continue;
+				entry = iter.next();
+				if(!entry.getValue().getBoolean())
+				{
+					iter.remove();
+					c++;
+					continue;
+				}
+				try
+				{
+					id = Integer.parseInt(entry.getKey());
+				}
+				catch(NumberFormatException e)
+				{
+					iter.remove();
+					c++;
+					continue;
+				}
+				world = server.getWorld(id);
+				if(world == null || world.provider.getDimensionType() != DimensionType.THE_END)
+				{
+					iter.remove();
+					c++;
+				}
 			}
-			try
+		}
+		mod.scheduler.clear();
+		long secs;
+		if(config.hasCategory("schedulers"))
+		{
+			for(Iterator<Entry<String, Property>> iter = config.getCategory("schedulers").entrySet().iterator(); iter.hasNext(); )
 			{
-				id = Integer.parseInt(entry.getKey());
-			}
-			catch(NumberFormatException e)
-			{
-				iter.remove();
-				c++;
-				continue;
-			}
-			world = server.getWorld(id);
-			if(world == null || world.provider.getDimensionType() != DimensionType.THE_END)
-			{
-				iter.remove();
-				c++;
+				entry = iter.next();
+				secs = entry.getValue().getLong();
+				if(secs < 1)
+				{
+					iter.remove();
+					c++;
+					continue;
+				}
+				try
+				{
+					id = Integer.parseInt(entry.getKey());
+				}
+				catch(NumberFormatException e)
+				{
+					iter.remove();
+					c++;
+					continue;
+				}
+				world = server.getWorld(id);
+				if(world == null)
+				{
+					iter.remove();
+					c++;
+					continue;
+				}
+				mod.scheduler.set(id, secs * 20L);
 			}
 		}
 		releaseLock();

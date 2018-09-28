@@ -18,19 +18,12 @@
 
 package de.v10lator.endreset;
 
-import java.util.ArrayList;
-
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.management.PlayerList;
-import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextFormatting;
-import net.minecraft.world.Teleporter;
 import net.minecraft.world.World;
 import net.minecraftforge.common.config.ConfigCategory;
 import net.minecraftforge.server.permission.PermissionAPI;
@@ -50,24 +43,25 @@ public class EndResetCommand extends CommandBase {
 
 	@Override
 	public String getUsage(ICommandSender sender) {
-		boolean canReset, canAddRemove;
+		boolean canReset, canAddRemove, canSchedule;
 		if(sender instanceof EntityPlayer)
 		{
 			EntityPlayer p = (EntityPlayer)sender;
 			canReset = PermissionAPI.hasPermission(p, mod.permResetNode);
 			canAddRemove = PermissionAPI.hasPermission(p, mod.permAddRemoveNode);
+			canSchedule = PermissionAPI.hasPermission(p, mod.permSchedule);
 		}
 		else
-			canReset = canAddRemove = true;
+			canReset = canAddRemove = canSchedule = true;
+		
 		if(canReset)
 		{
 			if(canAddRemove)
-				return "/endreset <reset|add|remove> ID";
-			return "/endreset reset ID";
+				return canSchedule ? "/endreset <reset|add|remove|schedule>" : "/endreset <reset|add|remove> ID";
+			else 
+				return canSchedule ? "/endreset <reset|schedule>" : "/endreset reset ID";
 		}
-		if(canAddRemove)
-			return "/endreset <add|remove> ID";
-		return "/endreset";
+		return canAddRemove ? canSchedule ? "/endreset <add|remove|schedule>" : "/endreset <add|remove> ID" : "/endreset";
 	}
 	
 	@Override
@@ -75,7 +69,7 @@ public class EndResetCommand extends CommandBase {
 		if(sender instanceof EntityPlayer)
 		{
 			EntityPlayer p = (EntityPlayer)sender;
-			return PermissionAPI.hasPermission(p, mod.permResetNode) || PermissionAPI.hasPermission(p, mod.permAddRemoveNode);
+			return PermissionAPI.hasPermission(p, mod.permResetNode) || PermissionAPI.hasPermission(p, mod.permAddRemoveNode) || PermissionAPI.hasPermission(p, mod.permSchedule);
 		}
 		return true;
 	}
@@ -98,16 +92,20 @@ public class EndResetCommand extends CommandBase {
 				break;
 			case "remove":
 				removeCommand(server, sender, args);
+				break;
+			case "scheduler":
+				schedulerCommand(server, sender, args);
+				break;
 			default:
 				sender.sendMessage(mod.makeMessage(TextFormatting.RED, getUsage(sender)));
 				break;
 		}
 	}
 	
-	private World getWorldFromArgs(MinecraftServer server, ICommandSender sender, String[] args)
+	private World getWorldFromArgs(MinecraftServer server, ICommandSender sender, String[] args, int i)
 	{
 		World ret = null;
-		if(args.length < 2)
+		if(args.length < i + 1)
 		{
 			if(!(sender instanceof EntityPlayer))
 			{
@@ -120,11 +118,11 @@ public class EndResetCommand extends CommandBase {
 		{
 			try
 			{
-				ret = server.getWorld(Integer.parseInt(args[1]));
+				ret = server.getWorld(Integer.parseInt(args[i]));
 			}
 			catch(NumberFormatException e)
 			{
-				sender.sendMessage(mod.makeMessage(TextFormatting.RED, "Invalid dimension: " + args[1]));
+				sender.sendMessage(mod.makeMessage(TextFormatting.RED, "Invalid dimension: " + args[i]));
 				return null;
 			}
 		}
@@ -134,6 +132,94 @@ public class EndResetCommand extends CommandBase {
 		return ret;
 	}
 	
+	private void schedulerAddCommand(MinecraftServer server, ICommandSender sender, String[] args)
+	{
+		if(args.length < 4)
+		{
+			sender.sendMessage(mod.makeMessage(TextFormatting.RED, "/endreset scheduler add ID seconds"));
+			return;
+		}
+		World tr = getWorldFromArgs(server, sender, args, 2);
+		if(tr == null)
+			return;
+		int seconds;
+		try
+		{
+			seconds = Integer.parseInt(args[3]);
+		}
+		catch(NumberFormatException e)
+		{
+			sender.sendMessage(mod.makeMessage(TextFormatting.RED, "Invalid seconds: " + args[3]));
+			return;
+		}
+		if(seconds < 1)
+		{
+			sender.sendMessage(mod.makeMessage(TextFormatting.RED, "Invalid seconds: " + seconds));
+			return;
+		}
+		int id = tr.provider.getDimension();
+		mod.configHandler.getLockedConfig().get("schedulers", Integer.toString(id), seconds).set(seconds);
+		mod.configHandler.releaseLock();
+		mod.scheduler.set(id, ((long)seconds) * 20L);
+		sender.sendMessage(mod.makeMessage(TextFormatting.GREEN, "DIM" + id + " scheduled each " + seconds + " seconds!"));
+	}
+	
+	private void schedulerDeleteCommand(MinecraftServer server, ICommandSender sender, String[] args)
+	{
+		if(args.length < 3)
+		{
+			sender.sendMessage(mod.makeMessage(TextFormatting.RED, "/endreset scheduler remove ID"));
+			return;
+		}
+		int id;
+		try
+		{
+			id = Integer.parseInt(args[2]);
+		}
+		catch(NumberFormatException e)
+		{
+			sender.sendMessage(mod.makeMessage(TextFormatting.RED, "Invalid ID: " + args[2]));
+			return;
+		}
+		if(!mod.scheduler.isScheduled(id))
+		{
+			sender.sendMessage(mod.makeMessage(TextFormatting.RED, "Invalid ID: " + id));
+			return;
+		}
+		mod.scheduler.remove(id);
+		mod.configHandler.getLockedConfig().getCategory("schedulers").remove(Integer.toString(id));
+		mod.configHandler.releaseLock();
+		sender.sendMessage(mod.makeMessage(TextFormatting.GREEN, "DIM" + id + " removed from scheduler!"));
+	}
+	
+	private void schedulerCommand(MinecraftServer server, ICommandSender sender, String[] args)
+	{
+		if(sender instanceof EntityPlayer && !PermissionAPI.hasPermission((EntityPlayer)sender, mod.permSchedule))
+		{
+			sender.sendMessage(mod.makeMessage(TextFormatting.RED, "No permission to use the scheduler command!"));
+			return;
+		}
+		if(args.length < 2)
+		{
+			sender.sendMessage(mod.makeMessage(TextFormatting.RED, "/endreset scheduler <add|delete>"));
+			return;
+		}
+		args[1] = args[1].toLowerCase();
+		switch(args[1])
+		{
+			case "add":
+				schedulerAddCommand(server, sender, args);
+				break;
+			case "delete":
+				schedulerDeleteCommand(server, sender, args);
+				break;
+			default:
+				sender.sendMessage(mod.makeMessage(TextFormatting.RED, "/endreset scheduler <add|delete>"));
+				break;
+		}
+			
+	}
+	
 	private void removeCommand(MinecraftServer server, ICommandSender sender, String[] args)
 	{
 		if(sender instanceof EntityPlayer && !PermissionAPI.hasPermission((EntityPlayer)sender, mod.permAddRemoveNode))
@@ -141,7 +227,7 @@ public class EndResetCommand extends CommandBase {
 			sender.sendMessage(mod.makeMessage(TextFormatting.RED, "No permission to use the add command!"));
 			return;
 		}
-		World tr = getWorldFromArgs(server, sender, args);
+		World tr = getWorldFromArgs(server, sender, args, 1);
 		if(tr == null)
 			return;
 		String id = Integer.toString(tr.provider.getDimension());
@@ -165,7 +251,7 @@ public class EndResetCommand extends CommandBase {
 			sender.sendMessage(mod.makeMessage(TextFormatting.RED, "No permission to use the add command!"));
 			return;
 		}
-		World tr = getWorldFromArgs(server, sender, args);
+		World tr = getWorldFromArgs(server, sender, args, 1);
 		if(tr == null)
 			return;
 		String id = Integer.toString(tr.provider.getDimension());
@@ -181,7 +267,7 @@ public class EndResetCommand extends CommandBase {
 			sender.sendMessage(mod.makeMessage(TextFormatting.RED, "No permission to use the reset command!"));
 			return;
 		}
-		World tr = getWorldFromArgs(server, sender, args);
+		World tr = getWorldFromArgs(server, sender, args, 1);
 		if(tr == null)
 			return;
 		
@@ -192,19 +278,7 @@ public class EndResetCommand extends CommandBase {
 			return;
 		}
 		
-		PlayerList pl = server.getPlayerList();
-		Teleporter tp = new Teleporter(server.getWorld(0))
-		{
-			@Override
-		    public void placeEntity(World world, Entity entity, float yaw)
-		    {
-				BlockPos to = world.getSpawnPoint();
-		        entity.setPosition(to.getX(), to.getY(), to.getZ());
-			}
-		};
-		for(EntityPlayer p: new ArrayList<EntityPlayer>(tr.playerEntities))
-			pl.transferPlayerToDimension((EntityPlayerMP)p, 0, tp);
-		mod.reset(tr);
+		mod.reset(tr, true);
 		sender.sendMessage(mod.makeMessage(TextFormatting.GREEN, "DIM" + id + " resetted!"));
 	}
 }

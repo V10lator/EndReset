@@ -20,17 +20,25 @@ package de.v10lator.endreset;
 
 import java.io.File;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
+
+import org.apache.logging.log4j.LogManager;
 
 import de.v10lator.endreset.capabilities.entity.IPlayerWorldVersions;
 import de.v10lator.endreset.capabilities.entity.PlayerWorldVersionsProvider;
 import de.v10lator.endreset.capabilities.world.WorldVersionProvider;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.management.PlayerList;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.Style;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.DimensionType;
+import net.minecraft.world.Teleporter;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldProviderEnd;
 import net.minecraft.world.end.DragonFightManager;
@@ -49,6 +57,8 @@ import net.minecraftforge.fml.common.event.FMLServerStoppingEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.PlayerEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent.Phase;
+import net.minecraftforge.fml.common.gameevent.TickEvent.ServerTickEvent;
 import net.minecraftforge.fml.relauncher.ReflectionHelper;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.server.permission.DefaultPermissionLevel;
@@ -60,7 +70,9 @@ public class EndReset {
 	private Field dragonKilled;
 	final String permResetNode = "##MODID##.command.reset";
 	final String permAddRemoveNode = "##MODID##.command.addRemove";
+	final String permSchedule = "##MODID##.command.scheduler";
 	EndResetConfigHandler configHandler;
+	EndResetScheduler scheduler;
 	
 	@Mod.EventHandler
     public void onPreInit(FMLPreInitializationEvent event) {
@@ -76,6 +88,7 @@ public class EndReset {
 			return;
 		}
 		dragonKilled = ReflectionHelper.findField(DragonFightManager.class, "field_186117_k", "dragonKilled");
+		scheduler = new EndResetScheduler(this);
 		configHandler = new EndResetConfigHandler(this, new Configuration(configFile, "1.0"));
 		PermissionAPI.registerNode(permResetNode, DefaultPermissionLevel.OP, "Use the /endreset reset command");
 		PermissionAPI.registerNode(permAddRemoveNode, DefaultPermissionLevel.OP, "Use the /endreset <add|remove> commands");
@@ -92,6 +105,7 @@ public class EndReset {
 		dragonKilled = null;
 		configHandler.die();
 		configHandler = null;
+		scheduler = null;
 	}
 	
 	private void removeRecursive(File file)
@@ -102,10 +116,25 @@ public class EndReset {
 		file.delete();
 	}
 	
-	void reset(World world)
+	void reset(World world, boolean emptyFirst)
 	{
 		int id = world.provider.getDimension();
 		MinecraftServer server = world.getMinecraftServer();
+		if(emptyFirst)
+		{
+			PlayerList pl = server.getPlayerList();
+			Teleporter tp = new Teleporter(server.getWorld(0))
+			{
+				@Override
+			    public void placeEntity(World world, Entity entity, float yaw)
+			    {
+					BlockPos to = world.getSpawnPoint();
+			        entity.setPosition(to.getX(), to.getY(), to.getZ());
+				}
+			};
+			for(EntityPlayer p: new ArrayList<EntityPlayer>(world.playerEntities))
+				pl.transferPlayerToDimension((EntityPlayerMP)p, 0, tp);
+		}
 		// Remove NBT data
 		long version = world.getCapability(WorldVersionProvider.VERSION_CAP, null).get() + 1L;
 		NBTTagCompound nbt = world.getWorldInfo().getDimensionData(id);
@@ -119,6 +148,7 @@ public class EndReset {
 		// Create new world (will recycle old NBT data, that's why we removed it above)
 		DimensionManager.initDimension(id);
 		DimensionManager.getWorld(id).getCapability(WorldVersionProvider.VERSION_CAP, null).set(version);
+		LogManager.getLogger("##NAME##").info("DIM" + id + " resetted!");
 	}
 	
 	private void checkDim(World world, EntityPlayer ignore)
@@ -146,7 +176,7 @@ public class EndReset {
 			for(EntityPlayer player: world.playerEntities)
 				if(player != ignore)
 					return;
-		reset(world);
+		reset(world, false);
 	}
 	
 	private void checkPlayerTp(World to, EntityPlayer player)
@@ -161,6 +191,13 @@ public class EndReset {
 			if(pv > -1)
 				player.sendMessage(makeMessage(TextFormatting.YELLOW, "This world has been resetted since your last visit"));
 		}
+	}
+	
+	@SubscribeEvent
+	public void onTick(ServerTickEvent event)
+	{
+		if(event.phase == Phase.END)
+			scheduler.tick();
 	}
 	
 	@SubscribeEvent
