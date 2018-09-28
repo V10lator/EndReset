@@ -21,9 +21,6 @@ package de.v10lator.endreset;
 import java.io.File;
 import java.lang.reflect.Field;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 import de.v10lator.endreset.capabilities.entity.IPlayerWorldVersions;
 import de.v10lator.endreset.capabilities.entity.PlayerWorldVersionsProvider;
 import de.v10lator.endreset.capabilities.world.WorldVersionProvider;
@@ -36,8 +33,6 @@ import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.DimensionType;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldProviderEnd;
-import net.minecraft.world.WorldServer;
-import net.minecraft.world.WorldServerMulti;
 import net.minecraft.world.end.DragonFightManager;
 import net.minecraft.world.storage.ISaveHandler;
 import net.minecraftforge.common.DimensionManager;
@@ -62,7 +57,7 @@ import net.minecraftforge.server.permission.PermissionAPI;
 @Mod(modid = "##MODID##", name = "##NAME##", version = "##VERSION##", acceptedMinecraftVersions = "1.12.2", acceptableRemoteVersions = "*", updateJSON="http://forge.home.v10lator.de/update.json?id=##MODID##&v=##VERSION##")
 public class EndReset {
 	private File configFile;
-	private Field dragonKilled, delegate;
+	private Field dragonKilled;
 	final String permResetNode = "##MODID##.command.reset";
 	final String permAddRemoveNode = "##MODID##.command.addRemove";
 	EndResetConfigHandler configHandler;
@@ -81,7 +76,6 @@ public class EndReset {
 			return;
 		}
 		dragonKilled = ReflectionHelper.findField(DragonFightManager.class, "field_186117_k", "dragonKilled");
-		delegate = ReflectionHelper.findField(WorldServerMulti.class, "field_175743_a", "delegate");
 		configHandler = new EndResetConfigHandler(this, new Configuration(configFile, "1.0"));
 		PermissionAPI.registerNode(permResetNode, DefaultPermissionLevel.OP, "Use the /endreset reset command");
 		PermissionAPI.registerNode(permAddRemoveNode, DefaultPermissionLevel.OP, "Use the /endreset <add|remove> commands");
@@ -95,7 +89,7 @@ public class EndReset {
 		if(FMLCommonHandler.instance().getEffectiveSide() != Side.SERVER)
 			return;
 		MinecraftForge.EVENT_BUS.unregister(this);
-		dragonKilled = delegate = null;
+		dragonKilled = null;
 		configHandler.die();
 		configHandler = null;
 	}
@@ -108,7 +102,7 @@ public class EndReset {
 		file.delete();
 	}
 	
-	World reset(World world)
+	void reset(World world)
 	{
 		int id = world.provider.getDimension();
 		MinecraftServer server = world.getMinecraftServer();
@@ -123,19 +117,8 @@ public class EndReset {
 		// Remove region (anvil) data on disk
 		removeRecursive(new File(sh.getWorldDirectory(), world.provider.getSaveFolder()));
 		// Create new world (will recycle old NBT data, that's why we removed it above)
-		try
-		{
-			world = new WorldServerMulti(server, sh, id, (WorldServer)delegate.get(world), server.profiler).init();
-		}
-		catch (Exception e)
-		{
-			Logger logger = LogManager.getLogger("##NAME##");
-			logger.error("Internal (reflection) error!");
-			logger.catching(e);
-			DimensionManager.setWorld(id, (WorldServer)world, server);
-		}
-		world.getCapability(WorldVersionProvider.VERSION_CAP, null).set(version);
-		return world;
+		DimensionManager.initDimension(id);
+		DimensionManager.getWorld(id).getCapability(WorldVersionProvider.VERSION_CAP, null).set(version);
 	}
 	
 	private void checkDim(World world, EntityPlayer ignore)
