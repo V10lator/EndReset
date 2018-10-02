@@ -20,27 +20,27 @@ package de.v10lator.endreset;
 
 import java.io.File;
 import java.lang.reflect.Field;
-import java.util.ArrayList;
+import java.util.HashSet;
 
 import org.apache.logging.log4j.LogManager;
 
 import de.v10lator.endreset.capabilities.entity.IPlayerWorldVersions;
 import de.v10lator.endreset.capabilities.entity.PlayerWorldVersionsProvider;
 import de.v10lator.endreset.capabilities.world.WorldVersionProvider;
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.network.play.server.SPacketUnloadChunk;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.management.PlayerList;
-import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.Style;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.DimensionType;
-import net.minecraft.world.Teleporter;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldProviderEnd;
+import net.minecraft.world.WorldServer;
+import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.end.DragonFightManager;
 import net.minecraft.world.storage.ISaveHandler;
 import net.minecraftforge.common.DimensionManager;
@@ -49,6 +49,7 @@ import net.minecraftforge.common.config.ConfigCategory;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.event.entity.EntityTravelToDimensionEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.event.world.ChunkEvent;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
@@ -73,6 +74,7 @@ public class EndReset {
 	final String permScheduleNode = "##MODID##.command.scheduler";
 	EndResetConfigHandler configHandler;
 	EndResetScheduler scheduler;
+	private final HashSet<Integer> unloadingDims = new HashSet<Integer>();
 	
 	@Mod.EventHandler
     public void onPreInit(FMLPreInitializationEvent event) {
@@ -117,24 +119,33 @@ public class EndReset {
 		file.delete();
 	}
 	
-	void reset(World world, boolean emptyFirst)
+	void reset(World world, boolean updatePlayers)
 	{
 		int id = world.provider.getDimension();
 		MinecraftServer server = world.getMinecraftServer();
-		if(emptyFirst)
+		EntityPlayerMP[] playerList;
+		PlayerList pl;
+		if(updatePlayers)
 		{
-			PlayerList pl = server.getPlayerList();
-			Teleporter tp = new Teleporter(server.getWorld(0))
+			// Remove players from dimension and create a array containing all EntityPlayerMP objects for this world
+			pl = server.getPlayerList();
+			playerList = new EntityPlayerMP[world.playerEntities.size()];
+			EntityPlayer player;
+			EntityPlayerMP playerMp;
+			for(int i = 0; i < world.playerEntities.size(); i++)
 			{
-				@Override
-			    public void placeEntity(World world, Entity entity, float yaw)
-			    {
-					BlockPos to = world.getSpawnPoint();
-			        entity.setPosition(to.getX(), to.getY(), to.getZ());
-				}
-			};
-			for(EntityPlayer p: new ArrayList<EntityPlayer>(world.playerEntities))
-				pl.transferPlayerToDimension((EntityPlayerMP)p, 0, tp);
+				player = world.playerEntities.get(i);
+				world.onEntityRemoved(player);
+				player.setWorld(null);
+				playerMp = (EntityPlayerMP)player;
+				playerMp.interactionManager.setWorld(null);
+				playerList[i] = playerMp;
+			}
+		}
+		else
+		{
+			playerList = null;
+			pl = null;
 		}
 		// Remove NBT data
 		long version = world.getCapability(WorldVersionProvider.VERSION_CAP, null).get() + 1L;
@@ -143,12 +154,40 @@ public class EndReset {
 			nbt.removeTag(key);
 		// Force-unload world
 		ISaveHandler sh = world.getSaveHandler();
+		File folder = new File(sh.getWorldDirectory(), world.provider.getSaveFolder());
+		unloadingDims.add(id);
+		world = null;
 		DimensionManager.setWorld(id, null, server);
 		// Remove region (anvil) data on disk
-		removeRecursive(new File(sh.getWorldDirectory(), world.provider.getSaveFolder()));
+		removeRecursive(folder);
+		sh.flush();
 		// Create new world (will recycle old NBT data, that's why we removed it above)
+		unloadingDims.remove(id);
 		DimensionManager.initDimension(id);
-		DimensionManager.getWorld(id).getCapability(WorldVersionProvider.VERSION_CAP, null).set(version);
+		WorldServer newWorld = DimensionManager.getWorld(id);
+		newWorld.getCapability(WorldVersionProvider.VERSION_CAP, null).set(version);
+		
+		if(updatePlayers)
+		{
+			// Add players to the new dimension and inform them about the reset
+			boolean oldForceSpawn;
+			for(EntityPlayerMP player: playerList)
+			{
+				player.setWorld(newWorld);
+				oldForceSpawn = player.forceSpawn;
+				player.forceSpawn = true;
+				newWorld.spawnEntity(player);
+				player.forceSpawn = oldForceSpawn;
+                
+				pl.preparePlayer(player, null);
+				player.interactionManager.setWorld(newWorld);
+				pl.updateTimeAndWeatherForPlayer(player, newWorld);
+				
+				player.getCapability(PlayerWorldVersionsProvider.VERSION_CAP, null).set(id, version);
+				player.sendMessage(makeMessage(TextFormatting.YELLOW, "The world resetted!"));
+			}
+		}
+		// Log the resetting
 		LogManager.getLogger("##NAME##").info("DIM" + id + " resetted!");
 	}
 	
@@ -251,5 +290,25 @@ public class EndReset {
 		TextComponentString ret = new TextComponentString(message);
 		ret.setStyle((new Style()).setColor(color));
 		return ret;
+	}
+	
+	/*
+	 *  The server doesn't send chunk unload packets for chunks out of the players view-distance
+	 *
+	 * but the client might have cached chunks farer away, so send unload packets to force
+	 * the player to reload the chunk when it comes into view-distance again.
+	 * TODO: We're a bit lazy on this and send packets also for chunks in view. So there might
+	 * be a small optimization potential here
+	 */
+	@SubscribeEvent
+	public void onChunkLoad(ChunkEvent.Unload event)
+	{
+		World world = event.getWorld();
+		if(!unloadingDims.contains(world.provider.getDimension()))
+			return;
+		Chunk chunk = event.getChunk();
+		SPacketUnloadChunk packet = new SPacketUnloadChunk(chunk.x, chunk.z);
+		for(EntityPlayer player: world.playerEntities)
+			((EntityPlayerMP)player).connection.sendPacket(packet);
 	}
 }
