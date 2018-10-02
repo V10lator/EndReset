@@ -20,7 +20,7 @@ package de.v10lator.endreset.capabilities.world;
 
 import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTPrimitive;
-import net.minecraft.nbt.NBTTagLong;
+import net.minecraft.nbt.NBTTagInt;
 import net.minecraft.util.EnumFacing;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.Capability.IStorage;
@@ -29,11 +29,11 @@ public class WorldVersionStorage implements IStorage<IWorldVersion>{
 
 	@Override
 	public NBTBase writeNBT(Capability<IWorldVersion> capability, IWorldVersion instance, EnumFacing side) {
-		return new NBTTagLong(instance.get());
+		return new NBTTagInt(instance.get());
 	}
 
 	@Override
 	public void readNBT(Capability<IWorldVersion> capability, IWorldVersion instance, EnumFacing side, NBTBase nbt) {
-		instance.set(((NBTPrimitive)nbt).getLong());
+		instance.set(((NBTPrimitive)nbt).getInt());
 	}
 }

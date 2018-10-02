@@ -19,6 +19,6 @@
 package de.v10lator.endreset.capabilities.world;
 
 public interface IWorldVersion {
-	public long get();
-	public void set(long version);
+	public int get();
+	public void set(int version);
 }

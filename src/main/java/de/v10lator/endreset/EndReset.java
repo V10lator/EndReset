@@ -148,7 +148,8 @@ public class EndReset {
 			pl = null;
 		}
 		// Remove NBT data
-		long version = world.getCapability(WorldVersionProvider.VERSION_CAP, null).get() + 1L;
+		int version = world.getCapability(WorldVersionProvider.VERSION_CAP, null).get();
+		version = version == Integer.MAX_VALUE ? 0 : version + 1;
 		NBTTagCompound nbt = world.getWorldInfo().getDimensionData(id);
 		for(String key: nbt.getKeySet())
 			nbt.removeTag(key);
@@ -223,9 +224,9 @@ public class EndReset {
 	{
 		IPlayerWorldVersions versions = player.getCapability(PlayerWorldVersionsProvider.VERSION_CAP, null);
 		int id = to.provider.getDimension();
-		long pv = versions.get(id);
-		long version = to.getCapability(WorldVersionProvider.VERSION_CAP, null).get();
-		if(pv < version)
+		int pv = versions.get(id);
+		int version = to.getCapability(WorldVersionProvider.VERSION_CAP, null).get();
+		if(pv != version)
 		{
 			versions.set(id, version);
 			if(pv > -1)

@@ -21,9 +21,9 @@ package de.v10lator.endreset.capabilities.entity;
 import java.util.HashMap;
 
 public interface IPlayerWorldVersions {
-	public long get(int dimension);
-	public void set(int dimension, long version);
+	public int get(int dimension);
+	public void set(int dimension, int version);
 	public boolean has(int dimension);
-	HashMap<Integer, Long> getInternalMap();
+	HashMap<Integer, Integer> getInternalMap();
 	public void integrate(IPlayerWorldVersions versions);
 }

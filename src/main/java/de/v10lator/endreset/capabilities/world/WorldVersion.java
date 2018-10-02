@@ -21,15 +21,15 @@ package de.v10lator.endreset.capabilities.world;
 import java.util.concurrent.Callable;
 
 public class WorldVersion implements IWorldVersion, Callable<IWorldVersion> {
-	private long version = 0L;
+	private int version = 0;
 
 	@Override
-	public long get() {
+	public int get() {
 		return this.version;
 	}
 
 	@Override
-	public void set(long version) {
+	public void set(int version) {
 		this.version = version;
 	}
 

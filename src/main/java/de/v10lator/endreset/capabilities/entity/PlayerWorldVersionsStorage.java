@@ -31,8 +31,8 @@ public class PlayerWorldVersionsStorage implements IStorage<IPlayerWorldVersions
 	@Override
 	public NBTBase writeNBT(Capability<IPlayerWorldVersions> capability, IPlayerWorldVersions instance, EnumFacing side) {
 		NBTTagCompound tag = new NBTTagCompound();
-		for(Entry<Integer, Long> entry: instance.getInternalMap().entrySet())
-			tag.setLong(Integer.toString(entry.getKey()), entry.getValue());
+		for(Entry<Integer, Integer> entry: instance.getInternalMap().entrySet())
+			tag.setInteger(Integer.toString(entry.getKey()), entry.getValue());
 		return tag;
 	}
 
@@ -40,6 +40,6 @@ public class PlayerWorldVersionsStorage implements IStorage<IPlayerWorldVersions
 	public void readNBT(Capability<IPlayerWorldVersions> capability, IPlayerWorldVersions instance, EnumFacing side, NBTBase nbt) {
 		NBTTagCompound tag = (NBTTagCompound)nbt;
 		for(String key: tag.getKeySet())
-			instance.set(Integer.parseInt(key), tag.getLong(key));
+			instance.set(Integer.parseInt(key), tag.getInteger(key));
 	}
 }

@@ -23,7 +23,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 
 public class PlayerWorldVersions implements IPlayerWorldVersions, Callable<IPlayerWorldVersions> {
-	private final HashMap<Integer, Long> versions = new HashMap<Integer, Long>();
+	private final HashMap<Integer, Integer> versions = new HashMap<Integer, Integer>();
 	
 	@Override
 	public IPlayerWorldVersions call() throws Exception {
@@ -31,12 +31,12 @@ public class PlayerWorldVersions implements IPlayerWorldVersions, Callable<IPlay
 	}
 
 	@Override
-	public long get(int dimension) {
-		return has(dimension) ? versions.get(dimension) : -1L;
+	public int get(int dimension) {
+		return has(dimension) ? versions.get(dimension) : -1;
 	}
 
 	@Override
-	public void set(int dimension, long version) {
+	public void set(int dimension, int version) {
 		versions.put(dimension, version);
 	}
 
@@ -46,13 +46,13 @@ public class PlayerWorldVersions implements IPlayerWorldVersions, Callable<IPlay
 	}
 
 	@Override
-	public HashMap<Integer, Long> getInternalMap() {
+	public HashMap<Integer,Integer> getInternalMap() {
 		return this.versions;
 	}
 
 	@Override
 	public void integrate(IPlayerWorldVersions versions) {
-		for(Entry<Integer, Long> entry: versions.getInternalMap().entrySet())
+		for(Entry<Integer, Integer> entry: versions.getInternalMap().entrySet())
 			this.versions.put(entry.getKey(), entry.getValue());
 	}
 }
