@@ -127,7 +127,7 @@ public class EndReset {
 		PlayerList pl;
 		if(updatePlayers)
 		{
-			// Remove players from dimension and create a array containing all EntityPlayerMP objects for this world
+			// Remove players from dimension and create an array containing all EntityPlayerMP objects for this world
 			pl = server.getPlayerList();
 			playerList = new EntityPlayerMP[world.playerEntities.size()];
 			EntityPlayer player;
@@ -293,15 +293,14 @@ public class EndReset {
 	}
 	
 	/*
-	 *  The server doesn't send chunk unload packets for chunks out of the players view-distance
-	 *
+	 * The server doesn't send chunk unload packets for chunks out of the players view-distance
 	 * but the client might have cached chunks farer away, so send unload packets to force
 	 * the player to reload the chunk when it comes into view-distance again.
 	 * TODO: We're a bit lazy on this and send packets also for chunks in view. So there might
 	 * be a small optimization potential here
 	 */
 	@SubscribeEvent
-	public void onChunkLoad(ChunkEvent.Unload event)
+	public void onChunkUnload(ChunkEvent.Unload event)
 	{
 		World world = event.getWorld();
 		if(!unloadingDims.contains(world.provider.getDimension()))
