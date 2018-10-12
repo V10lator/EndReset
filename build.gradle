@@ -34,7 +34,7 @@ minecraft {
     replace '##VERSION##', project.version
     replace '##NAME##', project.archivesBaseName
     replace '##MODID##', project.group
-    // makeObfSourceJar = false // an Srg named sources jar is made by default. uncomment this to disable.
+    makeObfSourceJar = false // an Srg named sources jar is made by default. uncomment this to disable.
 }
 
 dependencies {
