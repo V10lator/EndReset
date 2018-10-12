@@ -136,7 +136,7 @@ public class EndReset {
 			{
 				player = world.playerEntities.get(i);
 				world.onEntityRemoved(player);
-				player.setWorld(null);
+//				player.setWorld(null);
 				playerMp = (EntityPlayerMP)player;
 				playerMp.interactionManager.setWorld(null);
 				playerList[i] = playerMp;
