@@ -26,6 +26,7 @@ import org.apache.logging.log4j.LogManager;
 
 import de.v10lator.endreset.capabilities.entity.IPlayerWorldVersions;
 import de.v10lator.endreset.capabilities.entity.PlayerWorldVersionsProvider;
+import de.v10lator.endreset.capabilities.world.IWorldVersion;
 import de.v10lator.endreset.capabilities.world.WorldVersionProvider;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -227,7 +228,13 @@ public class EndReset {
 		IPlayerWorldVersions versions = player.getCapability(PlayerWorldVersionsProvider.VERSION_CAP, null);
 		int id = to.provider.getDimension();
 		int pv = versions.get(id);
-		int version = to.getCapability(WorldVersionProvider.VERSION_CAP, null).get();
+		IWorldVersion cap = to.getCapability(WorldVersionProvider.VERSION_CAP, null);
+		if(cap == null) //TODO: This should never happen
+		{
+			LogManager.getLogger("##NAME##").error("IWorldVersion == NULL for DIM" + id);
+			return;
+		}
+		int version = cap.get();
 		if(pv != version)
 		{
 			versions.set(id, version);
