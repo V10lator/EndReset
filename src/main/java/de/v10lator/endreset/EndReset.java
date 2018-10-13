@@ -73,7 +73,7 @@ public class EndReset {
 	final String permResetNode = "##MODID##.command.reset";
 	final String permAddRemoveNode = "##MODID##.command.addRemove";
 	final String permScheduleNode = "##MODID##.command.scheduler";
-	final String permReloadNode = "##MODID##.command.scheduler";
+	final String permReloadNode = "##MODID##.command.reload";
 	EndResetConfigHandler configHandler;
 	EndResetScheduler scheduler;
 	private final HashSet<Integer> unloadingDims = new HashSet<Integer>();
