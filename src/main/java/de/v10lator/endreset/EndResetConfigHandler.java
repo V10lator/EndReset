@@ -87,7 +87,7 @@ public class EndResetConfigHandler extends Thread {
 		}
 	}
 	
-	void reloadConfig() //TODO: Make a command for this
+	void reloadConfig()
 	{
 		getLockedConfig();
 		config.load();

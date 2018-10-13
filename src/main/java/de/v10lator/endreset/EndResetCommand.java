@@ -96,6 +96,9 @@ public class EndResetCommand extends CommandBase {
 			case "scheduler":
 				schedulerCommand(server, sender, args);
 				break;
+			case "reload":
+				reloadCommand(server, sender, args);
+				break;
 			default:
 				sender.sendMessage(mod.makeMessage(TextFormatting.RED, getUsage(sender)));
 				break;
@@ -130,6 +133,18 @@ public class EndResetCommand extends CommandBase {
 		if(ret == null)
 			sender.sendMessage(mod.makeMessage(TextFormatting.RED, "Invalid dimension!"));
 		return ret;
+	}
+	
+	private void reloadCommand(MinecraftServer server, ICommandSender sender, String[] args)
+	{
+		if(sender instanceof EntityPlayer && !PermissionAPI.hasPermission((EntityPlayer)sender, mod.permReloadNode))
+		{
+			sender.sendMessage(mod.makeMessage(TextFormatting.RED, "No permission to use the scheduler command!"));
+			return;
+		}
+		
+		mod.configHandler.reloadConfig();
+		sender.sendMessage(mod.makeMessage(TextFormatting.GREEN, "Configuration reloaded!"));
 	}
 	
 	private void schedulerAddCommand(MinecraftServer server, ICommandSender sender, String[] args)

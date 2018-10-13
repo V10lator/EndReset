@@ -72,6 +72,7 @@ public class EndReset {
 	final String permResetNode = "##MODID##.command.reset";
 	final String permAddRemoveNode = "##MODID##.command.addRemove";
 	final String permScheduleNode = "##MODID##.command.scheduler";
+	final String permReloadNode = "##MODID##.command.scheduler";
 	EndResetConfigHandler configHandler;
 	EndResetScheduler scheduler;
 	private final HashSet<Integer> unloadingDims = new HashSet<Integer>();
@@ -95,6 +96,7 @@ public class EndReset {
 		PermissionAPI.registerNode(permResetNode, DefaultPermissionLevel.OP, "Use the /endreset reset command");
 		PermissionAPI.registerNode(permAddRemoveNode, DefaultPermissionLevel.OP, "Use the /endreset <add|remove> commands");
 		PermissionAPI.registerNode(permScheduleNode, DefaultPermissionLevel.OP, "Use the /endreset scheduler <add|remove> commands");
+		PermissionAPI.registerNode(permReloadNode, DefaultPermissionLevel.OP, "Use the /endreset reload command");
 		event.registerServerCommand(new EndResetCommand(this));
 		MinecraftForge.EVENT_BUS.register(this);
 		configHandler.start();
