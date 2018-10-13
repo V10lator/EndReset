@@ -201,7 +201,7 @@ public class EndResetCommand extends CommandBase {
 		}
 		if(args.length < 2)
 		{
-			sender.sendMessage(mod.makeMessage(TextFormatting.RED, "/endreset scheduler <add|delete>"));
+			sender.sendMessage(mod.makeMessage(TextFormatting.RED, "/endreset scheduler <add|remove>"));
 			return;
 		}
 		args[1] = args[1].toLowerCase();
@@ -210,11 +210,11 @@ public class EndResetCommand extends CommandBase {
 			case "add":
 				schedulerAddCommand(server, sender, args);
 				break;
-			case "delete":
+			case "remove":
 				schedulerDeleteCommand(server, sender, args);
 				break;
 			default:
-				sender.sendMessage(mod.makeMessage(TextFormatting.RED, "/endreset scheduler <add|delete>"));
+				sender.sendMessage(mod.makeMessage(TextFormatting.RED, "/endreset scheduler <add|remove>"));
 				break;
 		}
 			
